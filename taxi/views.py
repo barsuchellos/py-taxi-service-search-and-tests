@@ -127,7 +127,7 @@ class DriverListView(LoginRequiredMixin, generic.ListView):
         username = self.request.GET.get("username")
 
         if username:
-            return queryset.filter(username=username)
+            return queryset.filter(username__icontains=username)
         return queryset
 
 
