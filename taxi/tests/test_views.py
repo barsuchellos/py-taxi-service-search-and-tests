@@ -2,13 +2,14 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from taxi.models import Car, Manufacturer
+from taxi.models import Car, Manufacturer, Driver
 
 TAXI_INDEX_URL = reverse("taxi:index")
 TAXI_MANUFACTURER_LIST_URL = reverse("taxi:manufacturer-list")
 TAXI_MANUFACTURER_CREATE_URL = reverse("taxi:manufacturer-create")
 TAXI_CAR_LIST_URL = reverse("taxi:car-list")
 TAXI_CAR_CREATE_URL = reverse("taxi:car-create")
+TAXI_DRIVER_LIST_URL = reverse("taxi:driver-list")
 
 
 class MainPageTest(TestCase):
@@ -323,3 +324,49 @@ class ToggleAssignToCarTest(TestCase):
 
         self.assertTrue(self.driver.cars.filter(pk=self.car.pk).exists())
         self.assertRedirects(response, f"/cars/{self.car.pk}/")
+
+
+class DriverListViewTest(TestCase):
+    def setUp(self):
+        self.driver = get_user_model().objects.create_user(
+            username="testwow",
+            password="test1234",
+            first_name="John",
+            last_name="Wick",
+            email="john_wick@.lol"
+        )
+
+        self.client.force_login(self.driver)
+
+        Driver.objects.bulk_create([
+            Driver(
+                username=f"test{i}",
+                password=f"test123{i}",
+                first_name="John",
+                last_name="Wick",
+                email="john_wick@.lol",
+                license_number=f"ABC1234{i}"
+            )
+            for i in range(6)
+        ])
+
+    def test_driver_status_code(self):
+        response = self.client.get(TAXI_DRIVER_LIST_URL)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "taxi/driver_list.html")
+
+    def test_driver_login_required(self):
+        self.client.logout()
+        response = self.client.get(TAXI_DRIVER_LIST_URL)
+        self.assertRedirects(response, f"/accounts/login/?next={TAXI_DRIVER_LIST_URL}")
+
+    def test_driver_search(self):
+        response = self.client.get(TAXI_DRIVER_LIST_URL, {"username": "test0"})
+
+        self.assertEqual(len(list(response.context["driver_list"])), 1)
+
+    def test_driver_pagination_search(self):
+        response = self.client.get(TAXI_DRIVER_LIST_URL, {"username": "test", "page": 2})
+
+        self.assertEqual(len(list(response.context["driver_list"])), 2)
